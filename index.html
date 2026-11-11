@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="kk"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Хан тағы · Жорық</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(#26364b,#0e1620);color:#f3e9d2;font-family:Georgia,serif;padding:env(safe-area-inset-top,0) 8px env(safe-area-inset-bottom,0);min-height:100vh}
+h1{text-align:center;font-size:22px;margin:10px 0;color:#f2c14e;text-shadow:0 2px 8px #000}
+#app{max-width:820px;margin:auto}
+.box{background:#223246;border:2px solid #f2c14e;border-radius:14px;padding:14px;margin:8px 0;box-shadow:0 6px 24px #0008}
+button{background:linear-gradient(#f7d070,#e0a82e);color:#2a1d08;border:0;border-radius:9px;padding:10px 14px;font:700 14px Georgia,serif;cursor:pointer}
+button.alt{background:#46617f;color:#f3e9d2}button:disabled{opacity:.45}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(125px,1fr));gap:7px;margin-top:8px}
+canvas{width:100%;display:block;border:2px solid #f2c14e;border-radius:14px;box-shadow:0 8px 30px #000a}
+#pad{display:none;justify-content:space-between;gap:8px;margin-top:8px;flex-wrap:wrap}#pad div{display:flex;gap:6px;flex-wrap:wrap}#pad button{min-width:46px;padding:13px 12px}
+@media(pointer:coarse){#pad{display:flex}}
+#modal{position:fixed;inset:0;background:rgba(6,10,16,.92);display:none;overflow:auto;padding:14px;z-index:9}#modal>div{max-width:540px;margin:5vh auto}
+.opt{display:block;width:100%;margin:6px 0;text-align:left}input,select{padding:8px;font-size:15px;max-width:100%}
+.ok{color:#7be08a}.bad{color:#ff8a80}.gold{color:#f2c14e}p.h{font-size:12px;opacity:.75}
+</style></head><body>
+<h1>👑 ХАН ТАҒЫ · ЖОРЫҚ</h1>
+<div id="app">
+ <div id="menu" class="box"><b>Ханды таңдаңыз</b><div class="grid" id="khans"></div></div>
+ <div id="game" style="display:none"><canvas id="c" width="800" height="500"></canvas>
+  <div id="pad"><div id="dp"></div><div id="ac"></div></div>
+  <p class="h">← ↑ ↓ → / WASD жүру · Shift жүгіру · J секіру (қасқырдан асып өту) · E сөйлесу · Space артефакт · Q қақпа</p></div>
+</div>
+<div id="modal"><div class="box" id="mb"></div></div>
+<script>
+const $=i=>document.getElementById(i),E=(t,c,s)=>{const e=document.createElement(t);if(c)e.className=c;if(s!=null)e.textContent=s;return e};
+const KH=[["Керей хан","1465–1473","Қазақ хандығының негізін қалаушылардың бірі.","map"],["Жәнібек хан","1465–1480","Кереймен бірге хандықты құрды.","one"],["Қасым хан","1511–1518","«Қасқа жолы» заңын жасаған, хандықты нығайтқан.","fill"],["Хақназар хан","1538–1580","Жүздерді біріктіруге ұмтылған билеуші.","chrono"],["Тәуекел хан","1582–1598","Оңтүстік қалалар үшін күрескен.","match"],["Есім хан","1598–1628","«Ескі жол» заңдарының авторы.","chrono"],["Жәңгір хан","1628–1652","1643 жылы Орбұлақта жеңіске жеткен.","art"],["Тәуке хан","1680–1718","«Жеті жарғы» заңдар жинағын жасаған.","match"],["Абылай хан","1771–1781","Жүздерді біріктірген дипломат.","fill"],["Кенесары хан","1841–1847","Ресейге қарсы қозғалыс көсемі.","art"]];
+const TN={one:"Тест",chrono:"Хронология",match:"Сәйкестендіру",map:"Карта",art:"Сурет/дерек",fill:"Бос орын"};
+const ST=["Хандықтың құрылуы","Қасым хан дәуірі","Хақназар хан","Тәуекел хан","Есім хан","Жәңгір хан","Тәуке хан","Абылай хан","Жүздер бірлігі","Кенесары қозғалысы"];
+const GR=["#6fae4a","#7cb356","#8fb455","#9cae52","#a8a456","#8c9e58","#6e9a5e","#5d8f6a","#4f8272","#456f6a"];
+const Q=[
+{t:"one",tp:"Хандықтың құрылуы",q:"Қазақ хандығының құрылу мерзімі?",o:["1456 жыл","1465–1466 жылдар","1505 жыл","1511 жыл"],a:1,e:"Керей мен Жәнібек хандықты 1465–1466 жж. құрды (оқулықтағы мерзім)."},
+{t:"one",tp:"Тәуке заңдары",q:"Тәуке хан тұсындағы заңдар жинағы?",o:["Қасқа жолы","Ескі жол","Жеті жарғы","Конституция"],a:2,e:"«Жеті жарғы» — Тәуке хан заңдары."},
+{t:"chrono",tp:"Хандар хронологиясы",q:"Хандарды ертеден кейінге қарай қойыңыз:",it:["Қасым хан","Есім хан","Тәуке хан","Абылай хан"],e:"Қасым → Есім → Тәуке → Абылай."},
+{t:"chrono",tp:"Оқиғалар реті",q:"Оқиғаларды ретке қойыңыз:",it:["Хандықтың құрылуы","Орбұлақ шайқасы","Жеті жарғы","Кенесары қозғалысы"],e:"Құрылу (1465) → Орбұлақ (1643) → Жеті жарғы → Кенесары."},
+{t:"match",tp:"Хан және оқиға",q:"Сәйкестендіріңіз:",p:[["Қасым хан","Қасқа жолы"],["Тәуке хан","Жеті жарғы"],["Жәңгір хан","Орбұлақ шайқасы"]],e:"Қасым — Қасқа жолы, Тәуке — Жеті жарғы, Жәңгір — Орбұлақ (1643)."},
+{t:"map",tp:"Карта: жүздер",q:"Схемадан Кіші жүз аумағын тап:",a:"w",e:"Кіші жүз — Қазақстанның батысы."},
+{t:"map",tp:"Карта: жүздер",q:"Схемадан Ұлы жүз аумағын тап (Жетісу):",a:"se",e:"Ұлы жүз — оңтүстік-шығыс."},
+{t:"art",tp:"Ескерткіштер",q:"🕌 Қожа Ахмет Ясауи кесенесі қай қалада?",o:["Түркістан","Астана","Орал","Өскемен"],a:0,e:"Кесене Түркістанда."},
+{t:"fill",tp:"Орбұлақ шайқасы",q:"Орбұлақ шайқасы ____ жылы болды.",a:["1643"],e:"Орбұлақ шайқасы — 1643 жыл."},
+{t:"fill",tp:"Хандықтың құрылуы",q:"Қазақ хандығы ____ жылдары құрылды (мысалы: 1465).",a:["1465","1465-1466","1465–1466"],e:"Хандық 1465–1466 жж. құрылды."}];
+let K,st=0,sc=0,okN=0,badN=0,rev=new Set(),pool=[],lives,H,N,art,gate,en,tr,bl,pt,busy=true,inv=0,run=false,stam=100,held={},dlg="",T=0,col=0;
+const dist=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
+KH.forEach((k,i)=>{const b=E("button","alt",k[0]);b.onclick=()=>info(i);$("khans").append(b)});
+function modal(f){const m=$("mb");m.textContent="";f(m);$("modal").style.display="block"}const close=()=>$("modal").style.display="none";
+function info(i){modal(m=>{const k=KH[i];m.append(E("h2","gold",k[0]+" ("+k[1]+")"),E("p","",k[2]),E("p","","🎁 Бонус: "+TN[k[3]]+" тапсырмасы дұрыс болса +20 ұпай"));
+ const g=E("button","","Жорыққа шығу ▶"),b=E("button","alt","Артқа");b.style.marginLeft="8px";
+ g.onclick=()=>{close();K={n:k[0],bt:k[3]};st=0;sc=0;okN=0;badN=0;rev=new Set();lives=3;$("menu").style.display="none";$("game").style.display="block";newStage();if(!run){run=true;loop()}};b.onclick=close;m.append(g,b)})}
+const r=(a,b)=>a+Math.random()*(b-a);
+function newStage(){H={x:90,y:360,hop:0,vy:0};N={x:110,y:r(100,200)};gate={x:745,y:r(150,350)};art=[];
+ for(let i=0;i<3;i++)art.push({x:r(220,660),y:r(80,440),e:["📜","🏺","🗡️"][i],ph:r(0,6)});
+ en=[];for(let i=0;i<Math.min(5,1+Math.floor(st/2));i++)en.push({x:r(350,700),y:r(70,440),vx:r(-1,1),vy:r(-1,1),t:0});
+ tr=[];for(let i=0;i<9;i++)tr.push({x:r(20,780),y:r(60,460),e:Math.random()<.7?"🌳":"🌲"});bl=[];for(let i=0;i<140;i++)bl.push({x:r(0,800),y:r(0,500),h:r(4,9)});
+ pt=[];inv=60;stam=100;col=0;dlg="КЕЗЕҢ "+(st+1)+": "+ST[st]+"\nҮш тарихи артефактіні тап!\nНПС-ке барып E бас.";busy=false}
+function spark(x,y,c,n){for(let i=0;i<n;i++)pt.push({x,y,vx:r(-3,3),vy:r(-4,1),l:40,c})}
+function press(c){if(busy)return;
+ if(c==69&&dist(H,N)<100)dlg=col<3?"Тапсырма:\nҮш тарихи артефактіні жина!\nЖиналғаны: "+col+"/3":"Жарайсың!\nБарлық артефакт жиналды.\nЕнді қақпаға бар!";
+ if(c==32)for(let i=art.length-1;i>=0;i--)if(dist(H,art[i])<65){spark(art[i].x,art[i].y,"#f2c14e",24);art.splice(i,1);col++;sc+=50;dlg="Артефакт табылды!\n+50 ұпай";break}
+ if(c==81&&col>=3&&dist(H,gate)<100){busy=true;quiz(ok=>{if(ok){st++;sc+=0;if(st>=10)over("Барлық 10 кезеңнен өттіңіз! 🎉");else{newStage()}}else{dlg="Қақпа жабық. Қайта көріңіз (Q).";busy=false}})}
+ if(c==74&&H.hop==0)H.vy=-7}
+addEventListener("keydown",e=>{if(["Space","ArrowUp","ArrowDown","ArrowLeft","ArrowRight"].includes(e.code))e.preventDefault();held[e.code]=1;if(!e.repeat)press(e.keyCode)});
+addEventListener("keyup",e=>held[e.code]=0);
+[["◀","ArrowLeft"],["▲","ArrowUp"],["▼","ArrowDown"],["▶","ArrowRight"],["⚡","ShiftLeft"]].forEach(([t,k])=>{const b=E("button","",t);b.ontouchstart=e=>{e.preventDefault();held[k]=1};b.ontouchend=()=>held[k]=0;$("dp").append(b)});
+[["E",69],["␣",32],["Q",81],["⤒",74]].forEach(([t,c])=>{const b=E("button","",t);b.ontouchstart=e=>{e.preventDefault();press(c)};$("ac").append(b)});
+function hit(){if(inv>0)return;lives--;inv=100;spark(H.x,H.y,"#e33",20);if(lives<=0){busy=true;medical()}}
+function upd(){T++;if(busy)return;
+ const rn=(held.ShiftLeft||held.ShiftRight)&&stam>0,sp=rn?4.6:2.8;if(rn)stam-=.8;else stam=Math.min(100,stam+.5);
+ if(held.ArrowLeft||held.KeyA)H.x-=sp;if(held.ArrowRight||held.KeyD)H.x+=sp;if(held.ArrowUp||held.KeyW)H.y-=sp;if(held.ArrowDown||held.KeyS)H.y+=sp;
+ H.x=Math.max(20,Math.min(780,H.x));H.y=Math.max(50,Math.min(470,H.y));
+ if(H.vy||H.hop){H.vy+=.4;H.hop+=H.vy;if(H.hop>=0){H.hop=0;H.vy=0}}if(inv>0)inv--;
+ en.forEach(e=>{const d=dist(e,H),s=.9+st*.08;if(d<170){e.vx=(H.x-e.x)/d*s*1.3;e.vy=(H.y-e.y)/d*s*1.3}else if(++e.t>90){e.t=0;e.vx=r(-1,1);e.vy=r(-1,1)}
+  e.x+=e.vx;e.y+=e.vy;if(e.x<20||e.x>780)e.vx*=-1;if(e.y<50||e.y>470)e.vy*=-1;
+  if(d<26&&H.hop>-14)hit()});
+ pt.forEach(p=>{p.x+=p.vx;p.y+=p.vy;p.vy+=.15;p.l--});pt=pt.filter(p=>p.l>0)}
+function tx(s,x0,y0,sz,c,al){x.font="bold "+sz+"px Georgia";x.fillStyle=c;x.textAlign=al||"left";s.split("\n").forEach((l,i)=>x.fillText(l,x0,y0+i*(sz+5)))}
+const x=$("c").getContext("2d");
+function draw(){const g=x.createLinearGradient(0,0,0,500);g.addColorStop(0,GR[st]);g.addColorStop(1,"#3d6a2c");x.fillStyle=g;x.fillRect(0,0,800,500);
+ x.strokeStyle="#2f5a22";x.lineWidth=1.5;bl.forEach(b=>{x.beginPath();x.moveTo(b.x,b.y);x.lineTo(b.x+Math.sin(T/30+b.x)*2,b.y-b.h);x.stroke()});
+ x.fillStyle="#d4b77a";x.fillRect(0,gate.y-24,800,48);x.fillStyle="#c7a762";x.fillRect(0,gate.y+10,800,14);
+ x.font="34px serif";x.textAlign="center";x.fillStyle="#000";
+ const all=[...tr.map(o=>({y:o.y,f:()=>x.fillText(o.e,o.x,o.y)})),{y:N.y,f:()=>x.fillText("🧙",N.x,N.y)},{y:gate.y,f:()=>{x.globalAlpha=col>=3?1:.55;if(col>=3){x.shadowColor="#f2c14e";x.shadowBlur=25}x.fillText("🏰",gate.x,gate.y);x.shadowBlur=0;x.globalAlpha=1}}];
+ art.forEach(a=>all.push({y:a.y,f:()=>{x.shadowColor="#f2c14e";x.shadowBlur=14;x.fillText(a.e,a.x,a.y-4+Math.sin(T/15+a.ph)*4);x.shadowBlur=0}}));
+ en.forEach(e=>all.push({y:e.y,f:()=>{x.fillStyle="#0004";x.beginPath();x.ellipse(e.x,e.y+4,14,5,0,0,7);x.fill();x.fillStyle="#000";x.fillText("🐺",e.x,e.y)}}));
+ all.push({y:H.y,f:()=>{x.fillStyle="#0005";x.beginPath();x.ellipse(H.x,H.y+6,16,6,0,0,7);x.fill();if(inv%10<6){x.fillStyle="#000";x.fillText("🏇",H.x,H.y+H.hop)}}});
+ all.sort((a,b)=>a.y-b.y).forEach(o=>o.f());
+ pt.forEach(p=>{x.globalAlpha=p.l/40;x.fillStyle=p.c;x.fillRect(p.x,p.y,4,4)});x.globalAlpha=1;
+ x.fillStyle="rgba(24,12,60,"+Math.min(.4,st*.04)+")";x.fillRect(0,0,800,500);
+ const v=x.createRadialGradient(400,250,200,400,250,520);v.addColorStop(0,"#0000");v.addColorStop(1,"#000a");x.fillStyle=v;x.fillRect(0,0,800,500);
+ if(!busy){if(dist(H,N)<100)tx("E",N.x,N.y-40,18,"#fff","center");art.forEach(a=>{if(dist(H,a)<65)tx("SPACE",a.x,a.y-40,16,"#fff","center")});if(col>=3&&dist(H,gate)<100)tx("Q",gate.x,gate.y-46,18,"#fff","center")}
+ x.fillStyle="#000b";x.fillRect(0,0,800,36);tx("❤️".repeat(Math.max(0,lives))+"  ҰПАЙ: "+sc+"  📜 "+col+"/3  · "+K.n+" · кезең "+(st+1)+"/10",12,25,16,"#f2c14e");
+ x.fillStyle="#fff3";x.fillRect(640,8,148,14);x.fillStyle="#4cc9f0";x.fillRect(640,8,148*stam/100,14);
+ if(dlg){const n=dlg.split("\n").length,h=n*23+18;x.fillStyle="#000c";x.fillRect(40,486-h,720,h);x.strokeStyle="#f2c14e";x.lineWidth=2;x.strokeRect(40,486-h,720,h);tx(dlg,60,486-h+26,18,"#fff")}}
+function loop(){upd();draw();requestAnimationFrame(loop)}
+function quiz(cb){if(!pool.length)pool=[...Q].sort(()=>Math.random()-.5);const q=pool.pop();
+ ask(q,ok=>{if(ok){okN++;sc+=100+(q.t==K.bt?20:0)}else{badN++;rev.add(q.tp)}cb(ok)})}
+function medical(){modal(m=>{m.append(E("h2","bad","СІЗ ЖЕҢІЛДІҢІЗ!"),E("h3","","🚑 Медициналық көмек қажет пе?"),E("p","","Тарихи біліміңіз сізді құтқара алады. Дұрыс жауап = +1 жан."));
+ const y=E("button","","Иә"),n=E("button","alt","Жоқ");n.style.marginLeft="8px";
+ y.onclick=()=>{close();quiz(ok=>{if(ok){lives=1;inv=150;busy=false;dlg="Көмек көрсетілді! +1 жан"}else over("Медициналық көмек көрсетілмеді.")})};n.onclick=()=>{close();over("")};m.append(y,n)})}
+function over(msg){busy=true;modal(m=>{m.append(E("h2","gold","Қорытынды"),E("p","",msg),E("p","","Ұпай: "+sc),E("p","ok","Дұрыс жауап: "+okN),E("p","bad","Қате жауап: "+badN),E("p","","Өтілген кезең: "+st+"/10"),E("h4","","Қайталау тақырыптары:"));
+ if(!rev.size)m.append(E("p","","Жоқ — тамаша!"));rev.forEach(v=>m.append(E("div","","• "+v)));
+ const b=E("button","","Қайта ойнау");b.style.marginTop="10px";b.onclick=()=>{close();$("game").style.display="none";$("menu").style.display="block"};m.append(b)})}
+function ask(q,cb){modal(m=>{m.append(E("div","gold","ТАРИХИ СЫНАҚ · "+TN[q.t]+(q.t==K.bt?" · бонус +20":"")),E("h3","",q.q));
+ const done=ok=>{m.textContent="";m.append(E("h3",ok?"ok":"bad",ok?"✅ Дұрыс! +100":"❌ Қате · тақырып қайталауға қосылды"),E("p","","Түсіндірме: "+q.e));const b=E("button","","Жалғастыру");b.onclick=()=>{close();cb(ok)};m.append(b)};
+ if(q.t=="one"||q.t=="art")q.o.forEach((o,i)=>{const b=E("button","opt alt",o);b.onclick=()=>done(i==q.a);m.append(b)});
+ if(q.t=="chrono"){const s=[],o=E("p","gold","");[...q.it].sort(()=>Math.random()-.5).forEach(it=>{const b=E("button","opt alt",it);b.onclick=()=>{s.push(it);b.disabled=true;o.textContent=s.join(" → ");if(s.length==q.it.length)done(s.join()==q.it.join())};m.append(b)});m.append(o)}
+ if(q.t=="match"){const ev=q.p.map(v=>v[1]).sort(()=>Math.random()-.5),ss=[];q.p.forEach(v=>{const p=E("p","",v[0]+" ↔ "),s=E("select");s.append(new Option("—",""));ev.forEach(w=>s.append(new Option(w,w)));ss.push(s);p.append(s);m.append(p)});const b=E("button","","Тексеру");b.onclick=()=>done(ss.every((s,i)=>s.value==q.p[i][1]));m.append(b)}
+ if(q.t=="map"){const N2="http://www.w3.org/2000/svg",s=document.createElementNS(N2,"svg");s.setAttribute("viewBox","0 0 320 200");s.style.width="100%";s.style.maxWidth="400px";
+  [["w",10,40,90,150,"Батыс"],["c",110,40,100,150,"Орталық"],["se",215,90,85,100,"Оңт.-шығыс"]].forEach(a=>{const g=document.createElementNS(N2,"rect");[["x",a[1]],["y",a[2]],["width",a[3]],["height",a[4]],["fill","#c9b88f"],["stroke","#fff"]].forEach(z=>g.setAttribute(z[0],z[1]));g.style.cursor="pointer";g.onclick=()=>done(a[0]==q.a);
+   const t=document.createElementNS(N2,"text");t.setAttribute("x",a[1]+6);t.setAttribute("y",a[2]+20);t.setAttribute("font-size","12");t.textContent=a[5];t.style.pointerEvents="none";s.append(g,t)});m.append(s)}
+ if(q.t=="fill"){const i=E("input");i.maxLength=12;const b=E("button","","Жауап");b.style.marginLeft="8px";b.onclick=()=>done(q.a.includes(i.value.trim()));m.append(i,b)}})}
+</script></body></html>
